@@ -1,10 +1,91 @@
-<!-- <script setup lang="ts">
-import { defineComponent, ref } from 'vue'
+<script setup lang="ts">
+import { ref } from 'vue'
 
-defineProps<{ msg: string }>()
+const files = ref<FileSystemFileHandle[]>([])
+const result = ref<string>('')
+const resultOld = ref<string>('')
+const selectedFile = ref<FileSystemFileHandle>()
+const parent = ref<FileSystemDirectoryHandle>()
+const parents = ref<FileSystemDirectoryHandle[]>([])
+const enableParent = ref<boolean>(false)
 
-const count = ref(0)
-</script> -->
+const ontab = (e: KeyboardEvent) => {
+  const obj = e.target as HTMLTextAreaElement;
+  if (!obj) {
+    return;
+  }
+  var cursorPosition = obj.selectionStart;
+  var cursorLeft = obj.value.substr(0, cursorPosition);
+  var cursorRight = obj.value.substr(
+    cursorPosition,
+    obj.value.length
+  );
+  obj.value = cursorLeft + "\t" + cursorRight;
+  obj.selectionEnd = cursorPosition + 1;
+}
+
+const save = async (handle: FileSystemFileHandle | undefined) => {
+  if (!handle) {
+    return;
+  }
+  const writable = await handle.createWritable({
+    keepExistingData: false,
+  });
+  await writable.write(result.value);
+  await writable.close();
+  resultOld.value = result.value;
+}
+
+const moveParent = async () => {
+  parents.value.splice(parents.value.length - 1, 1);
+  parent.value = parents.value[parents.value.length - 1];
+  const _files = await parents.value[parents.value.length - 1].values();
+  files.value = [];
+  for await (const entry of _files) {
+    files.value.push(entry as FileSystemFileHandle);
+  }
+  enableParent.value = parents.value.length > 1;
+}
+
+const open = async (f: FileSystemFileHandle | FileSystemDirectoryHandle) => {
+  if (f.kind === "file") {
+    var reader = new FileReader();
+    reader.onload = () => {
+      const _result = reader.result;
+      if (_result != null) {
+        result.value = _result.toString()
+        resultOld.value = result.value;
+      }
+    };
+    reader.readAsBinaryString(await f.getFile());
+    selectedFile.value = f;
+    return;
+  } else {
+    parents.value.push(f);
+    const _files = await parents.value[parents.value.length - 1].values();
+    files.value = [];
+    for await (const entry of _files) {
+      files.value.push(entry as FileSystemFileHandle);
+    }
+    parent.value = f;
+    enableParent.value = parents.value.length > 1;
+  }
+
+}
+const openDir = async () => {
+  parents.value = [];
+  const _parent = await window.showDirectoryPicker() as FileSystemDirectoryHandle;
+  if (!_parent) {
+    return;
+  }
+  parents.value.push(_parent);
+  parent.value = _parent;
+  files.value = [];
+  for await (let handle of _parent.values()) {
+    files.value.push(handle as FileSystemFileHandle);
+  }
+}
+</script>
 
 <template>
   <div class="nav">
@@ -67,110 +148,6 @@ const count = ref(0)
     ></textarea>
   </div>
 </template>
-
-
-<script lang="ts">
-import { defineComponent, ref } from 'vue'
-
-// let files: FileSystemFileHandle[] = [];
-let parents: FileSystemDirectoryHandle[] = [];
-
-export default defineComponent({
-  setup() {
-    const files = ref<FileSystemFileHandle[]>([])
-    const result = ref<string>('')
-    const resultOld = ref<string>('')
-    const selectedFile = ref<FileSystemFileHandle>()
-    const parent = ref<FileSystemDirectoryHandle>()
-    const enableParent = ref<boolean>(false)
-
-    return {
-      files,
-      result,
-      resultOld,
-      selectedFile,
-      parent,
-      enableParent,
-    };
-  },
-  methods: {
-    ontab(e: KeyboardEvent) {
-      const obj = e.target as HTMLTextAreaElement;
-      if (!obj) {
-        return;
-      }
-      var cursorPosition = obj.selectionStart;
-      var cursorLeft = obj.value.substr(0, cursorPosition);
-      var cursorRight = obj.value.substr(
-        cursorPosition,
-        obj.value.length
-      );
-      obj.value = cursorLeft + "\t" + cursorRight;
-      obj.selectionEnd = cursorPosition + 1;
-    },
-    async save(handle: FileSystemFileHandle | undefined) {
-      if (!handle) {
-        return;
-      }
-      const writable = await handle.createWritable({
-        keepExistingData: false,
-      });
-      await writable.write(this.result);
-      await writable.close();
-      this.resultOld = this.result;
-    },
-    async moveParent() {
-      parents.splice(parents.length - 1, 1);
-      this.parent = parents[parents.length - 1];
-      const files = await parents[parents.length - 1].values();
-      this.files = [];
-      for await (const entry of files) {
-        this.files.push(entry as FileSystemFileHandle);
-      }
-      this.enableParent = parents.length > 1;
-    },
-    async open(f: FileSystemFileHandle | FileSystemDirectoryHandle) {
-      if (f.kind === "file") {
-        var reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          if (result != null) {
-            this.result = result.toString()
-            this.resultOld = this.result;
-          }
-        };
-        reader.readAsBinaryString(await f.getFile());
-        this.selectedFile = f;
-        return;
-      } else {
-        parents.push(f);
-        const files = await parents[parents.length - 1].values();
-        this.files = [];
-        for await (const entry of files) {
-          this.files.push(entry as FileSystemFileHandle);
-        }
-        this.parent = f;
-        this.enableParent = parents.length > 1;
-      }
-
-    },
-    async openDir() {
-      parents = [];
-      const parent = await window.showDirectoryPicker() as FileSystemDirectoryHandle;
-      if (!parent) {
-        return;
-      }
-      parents.push(parent);
-      this.parent = parent;
-      this.files = [];
-      for await (let handle of parent.values()) {
-        this.files.push(handle as FileSystemFileHandle);
-      }
-    },
-  },
-})
-
-</script>
 
 <style scoped>
 li {
