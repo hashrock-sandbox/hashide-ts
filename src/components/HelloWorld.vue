@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import TabTextArea from './TabTextArea.vue'
 
 const files = ref<FileSystemFileHandle[]>([])
 const result = ref<string>('')
@@ -8,21 +9,6 @@ const selectedFile = ref<FileSystemFileHandle>()
 const parent = ref<FileSystemDirectoryHandle>()
 const parents = ref<FileSystemDirectoryHandle[]>([])
 const enableParent = ref<boolean>(false)
-
-const ontab = (e: KeyboardEvent) => {
-  const obj = e.target as HTMLTextAreaElement;
-  if (!obj) {
-    return;
-  }
-  var cursorPosition = obj.selectionStart;
-  var cursorLeft = obj.value.substr(0, cursorPosition);
-  var cursorRight = obj.value.substr(
-    cursorPosition,
-    obj.value.length
-  );
-  obj.value = cursorLeft + "\t" + cursorRight;
-  obj.selectionEnd = cursorPosition + 1;
-}
 
 const save = async (handle: FileSystemFileHandle | undefined) => {
   if (!handle) {
@@ -140,12 +126,7 @@ const openDir = async () => {
       </div>
       <button @click="save(selectedFile)">Save</button>
     </div>
-    <textarea
-      v-model="result"
-      spellcheck="false"
-      @keydown.tab.prevent="ontab"
-      @keydown.ctrl.83.prevent="save(selectedFile)"
-    ></textarea>
+    <TabTextArea v-model="result" @save="save(selectedFile)" />
   </div>
 </template>
 
